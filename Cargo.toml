@@ -1,0 +1,13 @@
+[package]
+name = "h2-net-lcd"
+version = "0.1.0"
+authors = ["William R. Fraser <wfraser@codewise.org>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "*"
+ctrlc = "3.1.7"
+lcd = { git = "https://github.com/wfraser/lcd" }
+lcd-pcf8574 = { git = "https://github.com/wfraser/lcd-pcf8574" }
