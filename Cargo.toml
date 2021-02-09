@@ -12,3 +12,7 @@ ctrlc = "3.1.7"
 lcd = { git = "https://github.com/wfraser/lcd" }
 lcd-pcf8574 = { git = "https://github.com/wfraser/lcd-pcf8574" }
 systemstat = "0.1.6"
+
+[features]
+default = []
+mock = []
