@@ -123,6 +123,13 @@ impl std::fmt::Write for MockDisplay {
     }
 }
 
+fn avail_mem_mib() -> Result<(u64, u64)> {
+    let mem = System::new().memory()?;
+    let total = mem.total.as_u64() / 1_048_576;
+    let avail = mem.platform_memory.meminfo.get("MemAvailable").unwrap().as_u64() / 1_048_576;
+    Ok((avail, total))
+}
+
 fn main() -> Result<()> {
     #[cfg(not(feature = "mock"))]
     let mut display = {
@@ -176,6 +183,11 @@ fn main() -> Result<()> {
         let temp = System::new().cpu_temp()
             .context("failed to get CPU temperature")?;
         write!(&mut display, "{:>2}C", temp)?;
+
+        display.position(0, 3);
+        let (avail, total) = avail_mem_mib()
+            .context("failed to get available memory")?;
+        write!(&mut display, "{:>4}/{:>4}M", total - avail, total)?;
 
         #[cfg(feature = "mock")]
         {
