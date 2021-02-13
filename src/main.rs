@@ -19,7 +19,7 @@ const I2C_BUS: u8 = 1;
 const I2C_ADDR: u16 = 0x27;
 
 // TODO: make this configurable
-const NET_DEV_NAMES: [&'static str; 5] = ["ether0", "ether0.201", "ppp0", "ether1", "ether2"];
+const NET_DEV_NAMES: [&str; 5] = ["ether0", "ether0.201", "ppp0", "ether1", "ether2"];
 
 struct NetStats {
     name: String,
@@ -80,7 +80,7 @@ impl CPUStats {
 
 #[cfg(feature = "mock")]
 struct MockDisplay {
-    lines: Vec<Vec<u8>>,
+    lines: Vec<Vec<char>>,
     pos: (usize, usize),
 }
 
@@ -88,7 +88,7 @@ struct MockDisplay {
 impl MockDisplay {
     pub fn new() -> Self {
         Self {
-            lines: vec![vec![b' '; 20]; 4],
+            lines: vec![vec![' '; 20]; 4],
             pos: (0, 0),
         }
     }
@@ -98,22 +98,36 @@ impl MockDisplay {
     }
 
     pub fn print(&mut self, s: &str) {
-        for byte in s.as_bytes() {
-            self.lines[self.pos.0][self.pos.1] = *byte;
-            self.pos.1 += 1;
-            if self.pos.1 == 20 {
-                self.pos.0 += 1;
-                self.pos.1 = 0;
-            }
-            if self.pos.0 == 4 {
-                self.pos.0 = 0;
-            }
+        for &byte in s.as_bytes() {
+            self.write(byte);
+        }
+    }
+
+    pub fn write(&mut self, byte: u8) {
+        let c = match byte {
+            0x00 => '↑',
+            0x01 => '↓',
+            0x02 => '°',
+            _ => byte as char,
+        };
+
+        self.lines[self.pos.0][self.pos.1] = c;
+        self.pos.1 += 1;
+        if self.pos.1 == 20 {
+            self.pos.0 += 1;
+            self.pos.1 = 0;
+        }
+        if self.pos.0 == 4 {
+            self.pos.0 = 0;
         }
     }
 
     pub fn dump(&self) {
         for line in &self.lines {
-            println!("{}", String::from_utf8_lossy(line));
+            for c in line.iter() {
+                print!("{}", c);
+            }
+            println!();
         }
     }
 }
@@ -143,44 +157,45 @@ fn main() -> Result<()> {
             DisplayMode::DisplayOn,
             DisplayCursor::CursorOff,
             DisplayBlink::BlinkOff);
+
+        // up arrow
+        display.upload_character(0, [
+            0b00100, // 1
+            0b01110, // 2
+            0b11111, // 3
+            0b00100, // 4
+            0b00100, // 5
+            0b00100, // 6
+            0b00100, // 7
+            0b00000, // 8
+        ]);
+
+        // down arrow
+        display.upload_character(1, [
+            0b00100, // 1
+            0b00100, // 2
+            0b00100, // 3
+            0b00100, // 4
+            0b11111, // 5
+            0b01110, // 6
+            0b00100, // 7
+            0b00000, // 8
+        ]);
+
+        // degree sign
+        display.upload_character(2, [
+            0b11100, // 1
+            0b10100, // 2
+            0b11100, // 3
+            0, // 4
+            0, // 5
+            0, // 6
+            0, // 7
+            0, // 8
+        ]);
+
         display
     };
-
-    // up arrow
-    display.upload_character(0, [
-        0b00100, // 1
-        0b01110, // 2
-        0b11111, // 3
-        0b00100, // 4
-        0b00100, // 5
-        0b00100, // 6
-        0b00100, // 7
-        0b00000, // 8
-    ]);
-
-    // down arrow
-    display.upload_character(1, [
-        0b00100, // 1
-        0b00100, // 2
-        0b00100, // 3
-        0b00100, // 4
-        0b11111, // 5
-        0b01110, // 6
-        0b00100, // 7
-        0b00000, // 8
-    ]);
-
-    // degree sign
-    display.upload_character(2, [
-        0b11100, // 1
-        0b10100, // 2
-        0b11100, // 3
-        0, // 4
-        0, // 5
-        0, // 6
-        0, // 7
-        0, // 8
-    ]);
 
     #[cfg(feature = "mock")]
     let mut display = MockDisplay::new();
