@@ -147,14 +147,10 @@ fn main() -> Result<()> {
     let mut display = MockDisplay::new();
 
     let stop = Arc::new(AtomicBool::new(false));
-    {
-        let stop = stop.clone();
-        ctrlc::set_handler(
-            move || {
-                stop.store(true, Ordering::SeqCst);
-            })
-            .context("failed to set SIGINT handler")?;
-    }
+    signal_hook::flag::register(signal_hook::consts::SIGTERM, stop.clone())
+        .context("failed to set SIGTERM handler")?;
+    signal_hook::flag::register(signal_hook::consts::SIGINT, stop.clone())
+        .context("failed to set SIGINT handler")?;
 
     let mut ifstats = vec![
         NetStats::new("ether0".to_owned())?,
