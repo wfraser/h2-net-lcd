@@ -18,6 +18,9 @@ use systemstat::{Platform, System};
 const I2C_BUS: u8 = 1;
 const I2C_ADDR: u16 = 0x27;
 
+// TODO: make this configurable
+const NET_DEV_NAMES: [&'static str; 5] = ["ether0", "ether0.201", "ppp0", "ether1", "ether2"];
+
 struct NetStats {
     name: String,
     last: (Instant, u64, u64),
@@ -143,6 +146,42 @@ fn main() -> Result<()> {
         display
     };
 
+    // up arrow
+    display.upload_character(0, [
+        0b00100, // 1
+        0b01110, // 2
+        0b11111, // 3
+        0b00100, // 4
+        0b00100, // 5
+        0b00100, // 6
+        0b00100, // 7
+        0b00000, // 8
+    ]);
+
+    // down arrow
+    display.upload_character(1, [
+        0b00100, // 1
+        0b00100, // 2
+        0b00100, // 3
+        0b00100, // 4
+        0b11111, // 5
+        0b01110, // 6
+        0b00100, // 7
+        0b00000, // 8
+    ]);
+
+    // degree sign
+    display.upload_character(2, [
+        0b11100, // 1
+        0b10100, // 2
+        0b11100, // 3
+        0, // 4
+        0, // 5
+        0, // 6
+        0, // 7
+        0, // 8
+    ]);
+
     #[cfg(feature = "mock")]
     let mut display = MockDisplay::new();
 
@@ -152,24 +191,35 @@ fn main() -> Result<()> {
     signal_hook::flag::register(signal_hook::consts::SIGINT, stop.clone())
         .context("failed to set SIGINT handler")?;
 
-    let mut ifstats = vec![
-        NetStats::new("ether0".to_owned())?,
-        NetStats::new("ether0.201".to_owned())?,
-        NetStats::new("ppp0".to_owned())?,
-        NetStats::new("ether1".to_owned())?,
-    ];
+    let mut ifstats = vec![];
+    for &name in &NET_DEV_NAMES {
+        ifstats.push(NetStats::new(name.to_owned())?);
+    }
+
     let mut cpustats = CPUStats::new()?;
 
     while !stop.load(Ordering::SeqCst) {
-        display.position(0, 0);
-        for (i, dev) in ifstats.iter_mut().take(5).enumerate() {
-            let i = i as u8;
-            let (rx, tx) = dev.mbps()?;
-            display.position(i * 4, 0);
-            write!(&mut display, "{:>3}", tx)?;
-            display.position(i * 4, 1);
-            write!(&mut display, "{:>3}", rx)?;
+
+        let mut mbps = vec![];
+        for dev in ifstats.iter_mut() {
+            mbps.push(dev.mbps()?);
         }
+
+        display.position(0, 0);
+        display.write(0x00);
+
+        for (_, tx) in &mbps {
+            write!(&mut display, "{:>3}", tx)?;
+            display.print(" ");
+        }
+
+        display.position(0, 1);
+        display.write(0x01);
+        for (rx, _) in &mbps {
+            write!(&mut display, "{:>3}", rx)?;
+            display.print(" ");
+        }
+
         display.position(0, 2);
         display.print("cpu ");
         for core in cpustats.get_load()? {
@@ -178,7 +228,10 @@ fn main() -> Result<()> {
 
         let temp = System::new().cpu_temp()
             .context("failed to get CPU temperature")?;
-        write!(&mut display, "{:>2}C", temp)?;
+        write!(&mut display, "{:>2}", temp.round(), )?;
+        //display.write(0xdf); // degree sign on ROM A00
+        display.write(0x02); // custom degree sign
+        display.print("C");
 
         display.position(0, 3);
         let (avail, total) = avail_mem_mib()
