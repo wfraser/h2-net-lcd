@@ -111,7 +111,7 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 [[package]]
 name = "lcd"
 version = "0.4.0-alpha.0"
-source = "git+https://github.com/wfraser/lcd#76fdfc4a5dbf2e05234d619913bb6198f43d6864"
+source = "git+https://github.com/wfraser/lcd#b62212d7441f916a9fcef7dad01279a30dcff6f8"
 
 [[package]]
 name = "lcd-pcf8574"
