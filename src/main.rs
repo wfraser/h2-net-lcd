@@ -1,13 +1,4 @@
 use anyhow::{Context, Result};
-use lcd::{
-    Display,
-    DisplayBlink,
-    DisplayCursor,
-    DisplayMode,
-    FunctionDots,
-    FunctionLine,
-};
-use lcd_pcf8574::Pcf8574;
 use std::collections::VecDeque;
 use std::fmt::Write;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -16,13 +7,22 @@ use std::thread;
 use std::time::{Duration, Instant};
 use systemstat::{Platform, System};
 
-const I2C_BUS: u8 = 2;
-const I2C_ADDR: u16 = 0x27;
-
 // TODO: make this configurable
 const NET_DEV_NAMES: [&str; 6] = [
     "ether0", "ether1", "ether2", "ether3", "ether4", "ether5",
 ];
+
+#[cfg(not(feature = "mock"))]
+mod lcd_display;
+
+#[cfg(not(feature = "mock"))]
+use lcd_display::{init_display, stop_display};
+
+#[cfg(feature = "mock")]
+mod mock_display;
+
+#[cfg(feature = "mock")]
+use mock_display::{init_display, stop_display};
 
 struct NetStats {
     name: String,
@@ -94,68 +94,6 @@ impl CPUStats {
     }
 }
 
-#[cfg(feature = "mock")]
-struct MockDisplay {
-    lines: Vec<Vec<char>>,
-    pos: (usize, usize),
-}
-
-#[cfg(feature = "mock")]
-impl MockDisplay {
-    pub fn new() -> Self {
-        Self {
-            lines: vec![vec![' '; 20]; 4],
-            pos: (0, 0),
-        }
-    }
-
-    pub fn position(&mut self, col: u8, row: u8) {
-        self.pos = (row.min(3) as usize, col.min(19) as usize);
-    }
-
-    pub fn print(&mut self, s: &str) {
-        for &byte in s.as_bytes() {
-            self.write(byte);
-        }
-    }
-
-    pub fn write(&mut self, byte: u8) {
-        let c = match byte {
-            0 => ' ',
-            1 ..= 7 => std::char::from_u32(0x2580 + byte as u32).unwrap(),
-            0xdf => '°',
-            _ => byte as char,
-        };
-
-        self.lines[self.pos.0][self.pos.1] = c;
-        self.pos.1 += 1;
-        if self.pos.1 == 20 {
-            self.pos.0 += 1;
-            self.pos.1 = 0;
-        }
-        if self.pos.0 == 4 {
-            self.pos.0 = 0;
-        }
-    }
-
-    pub fn dump(&self) {
-        for line in &self.lines {
-            for c in line.iter() {
-                print!("{}", c);
-            }
-            println!();
-        }
-    }
-}
-
-#[cfg(feature = "mock")]
-impl std::fmt::Write for MockDisplay {
-    fn write_str(&mut self, s: &str) -> std::fmt::Result {
-        self.print(s);
-        Ok(())
-    }
-}
-
 fn avail_mem_mib() -> Result<(u64, u64)> {
     let mem = System::new().memory()?;
     let total = mem.total.as_u64() / 1_048_576;
@@ -206,27 +144,7 @@ fn test_display_char() {
 }
 
 fn main() -> Result<()> {
-    #[cfg(not(feature = "mock"))]
-    let mut display = {
-        let mut display = Display::new(
-            Pcf8574::new(I2C_BUS, I2C_ADDR).context("failed to open I2C device")?);
-        display.init(FunctionLine::Line2, FunctionDots::Dots5x8);
-        display.display(
-            DisplayMode::DisplayOn,
-            DisplayCursor::CursorOff,
-            DisplayBlink::BlinkOff);
-
-        let mut bits = [0u8; 8];
-        for i in 0 .. 8 {
-            bits[7 - i] = 0b11111;
-            display.upload_character(i as u8, bits);
-        }
-
-        display
-    };
-
-    #[cfg(feature = "mock")]
-    let mut display = MockDisplay::new();
+    let mut display = init_display()?;
 
     let stop = Arc::new(AtomicBool::new(false));
     signal_hook::flag::register(signal_hook::consts::SIGTERM, stop.clone())
@@ -310,13 +228,6 @@ fn main() -> Result<()> {
         thread::sleep(Duration::from_millis(500));
     }
 
-    #[cfg(not(feature = "mock"))]
-    {
-        display.display(
-            DisplayMode::DisplayOff,
-            DisplayCursor::CursorOff,
-            DisplayBlink::BlinkOff);
-        display.unwrap().backlight(false);
-    }
+    stop_display(display);
     Ok(())
 }

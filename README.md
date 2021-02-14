@@ -34,7 +34,15 @@ first column is transmit, second column is receive.
 m = percent of memory available
 ```
 
-A few things are hard-coded near the top of `src/main.rs` which you may want to change:
+A few things are hard-coded which you may want to change:
+
+in `src/main.rs`:
+
+`NET_DEV_NAMES`: names of network interfaces to show. Defaults to `ether0` thru
+`ether5`; these are custom names I set on my machine; you will probably want to
+change these to something else!
+
+in `src/lcd_display.rs`:
 
 `I2C_BUS`: which I²C bus the display is connected to. Corresponds to
  `/dev/i2c-<n>`. Defaults to bus 2, which is on GPIO pins 18 and 20 on the
@@ -44,14 +52,8 @@ A few things are hard-coded near the top of `src/main.rs` which you may want to 
 for the display sold by Hardkernel, but can be changed by solder bridging some
 pads on the PCB.
 
-`NET_DEV_NAMES`: names of network interfaces to show. Defaults to `ether0` thru
-`ether5`; these are custom names I set on my machine; you will probably want to
-change these to something else!
-
 ## mock mode
 To see the program in operation without using an actual display, build and run
 with the `mock` feature enabled:
 
 `cargo run --features mock`
-
-It will warn about a bunch of unused code in this mode; just ignore it.
