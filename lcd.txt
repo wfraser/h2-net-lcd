@@ -1,0 +1,24 @@
+ 00000000011111111112
+ 12345678901234567890
++--------------------+
+|0123 aabbccddeeff  m|
+|0123 aabbccddeeff  m|
+|0123 aabbccddeeff  m|
+|cpu 66*C 999/999 mem|
++--------------------+
+
+0123 = non-idle %for cpu 0,1,2,3
+
+aa = ether0
+bb = ether1
+cc = ether2
+dd = ether3
+ee = ether4
+ff = ether5
+% of 1000 mbps
+
+66*C = cpu temperature
+
+999/999 = moving peak net mbps over last 1 minute
+
+m = % of memory avail
