@@ -23,9 +23,12 @@ pub fn init_display() -> Result<Display<Pcf8574>> {
         DisplayCursor::CursorOff,
         DisplayBlink::BlinkOff);
 
-    let mut bits = [0u8; 8];
+    // The display controller supports 8 custom characters. Characters are
+    // 5 pixels wide by 8 pixels tall.
+    // We'll use this to draw blocks of 8 different heights for our bar gauges.
+    let mut bits = [0u8; 8]; // 8 bytes in array for 8 pixels tall
     for i in 0 .. 8 {
-        bits[7 - i] = 0b11111; // characters are 5 pixels wide
+        bits[7 - i] = 0b11111; // 5 bits for 5 pixels wide
         display.upload_character(i as u8, bits);
     }
 

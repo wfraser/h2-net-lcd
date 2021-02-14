@@ -31,8 +31,9 @@ impl MockDisplay {
 
     pub fn write(&mut self, byte: u8) {
         let c = match byte {
-            0 => ' ',
-            1 ..= 7 => std::char::from_u32(0x2580 + byte as u32).unwrap(),
+            0 ..= 7 =>
+                // U+2581 thru U+2588 are blocks of increasing heights
+                std::char::from_u32(0x2581 + byte as u32).unwrap(),
             0xdf => '°',
             _ => byte as char,
         };
