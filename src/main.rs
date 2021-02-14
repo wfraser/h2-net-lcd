@@ -15,7 +15,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 use systemstat::{Platform, System};
 
-const I2C_BUS: u8 = 1;
+const I2C_BUS: u8 = 2;
 const I2C_ADDR: u16 = 0x27;
 
 // TODO: make this configurable
