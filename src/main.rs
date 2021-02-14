@@ -20,7 +20,9 @@ const I2C_BUS: u8 = 2;
 const I2C_ADDR: u16 = 0x27;
 
 // TODO: make this configurable
-const NET_DEV_NAMES: [&str; 6] = ["ether0", "ether1", "ether2", "ether3", "ether4", "ether5"];
+const NET_DEV_NAMES: [&str; 6] = [
+    "ether0", "ether1", "ether2", "ether3", "ether4", "ether5",
+];
 
 struct NetStats {
     name: String,
@@ -193,7 +195,7 @@ fn test_display_char() {
     assert_eq!(7, display_char(1., 0));
     assert_eq!(7, display_char(1., 1));
     assert_eq!(7, display_char(1., 2));
-    
+
     assert_eq!(32, display_char(0.5, 0));
     assert_eq!(3, display_char(0.5, 1));
     assert_eq!(7, display_char(0.5, 2));
