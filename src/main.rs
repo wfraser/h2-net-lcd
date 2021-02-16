@@ -26,8 +26,8 @@ use mock_display::{init_display, stop_display};
 
 struct NetStats {
     name: String,
-    last: (Instant, u64, u64),
-    pub buckets: VecDeque<(Instant, f64, f64)>,
+    last: NetSample,
+    pub buckets: VecDeque<(Instant, NetSpeeds)>,
 }
 
 impl NetStats {
@@ -40,33 +40,84 @@ impl NetStats {
         })
     }
 
-    fn sample(name: &str) -> Result<(Instant, u64, u64)> {
+    fn sample(name: &str) -> Result<NetSample> {
         let stats = System::new().network_stats(name)
             .with_context(|| format!("failed to get stats for {}", name))?;
         let now = Instant::now();
         let rx_bytes = stats.rx_bytes.as_u64();
         let tx_bytes = stats.tx_bytes.as_u64();
-
-        Ok((now, rx_bytes, tx_bytes))
+        Ok(NetSample { time: now, rx_bytes, tx_bytes })
     }
 
-    pub fn mbps(&mut self) -> Result<(u16, u16)> {
-        let (now, new_rx, new_tx) = Self::sample(&self.name)?;
-        let (prev, old_rx, old_tx) = self.last;
-        let dur = (now - prev).as_secs_f64();
-        let rx_mbps = (new_rx - old_rx) as f64 / dur * 8. / 1_000_000.;
-        let tx_mbps = (new_tx - old_tx) as f64 / dur * 8. / 1_000_000.;
-        self.last = (now, new_rx, new_tx);
+    pub fn get_speeds(&mut self) -> Result<NetSpeeds> {
+        let sample = Self::sample(&self.name)?;
+        let now = sample.time;
+        let speeds = sample.speeds(&self.last);
+        self.last = sample;
 
-        while let Some((time, _, _)) = self.buckets.front() {
+        while let Some((time, _)) = self.buckets.front() {
             if (now - *time).as_secs_f64() < 60. {
                 break;
             }
             self.buckets.pop_front();
         }
-        self.buckets.push_back((now, rx_mbps, tx_mbps));
+        self.buckets.push_back((now, speeds.clone()));
 
-        Ok((rx_mbps.ceil() as u16, tx_mbps.ceil() as u16))
+        Ok(speeds)
+    }
+}
+
+#[derive(Debug, Clone)]
+struct NetSpeed {
+    bytes: u64,
+    secs: f64,
+}
+
+impl NetSpeed {
+    pub fn from_bytes(secs: f64, new: u64, old: u64) -> Self {
+        let bytes = if new < old {
+            // wrap-around
+            u64::MAX - old + new
+        } else {
+            new - old
+        };
+        Self { bytes, secs }
+    }
+
+    pub fn mbps(&self) -> f64 {
+        self.bytes as f64 / self.secs * 8. / 1_000_000.
+    }
+
+    #[allow(dead_code)]
+    pub fn linear_display(&self) -> f64 {
+        (self.mbps() / 1000.).clamp(0., 1.)
+    }
+
+    pub fn log_display(&self) -> f64 {
+        (self.mbps().log10() / 3.).clamp(0., 1.)
+    }
+}
+
+#[derive(Debug, Clone)]
+struct NetSpeeds {
+    tx: NetSpeed,
+    rx: NetSpeed,
+}
+
+#[derive(Debug, Clone)]
+struct NetSample {
+    time: Instant,
+    rx_bytes: u64,
+    tx_bytes: u64,
+}
+
+impl NetSample {
+    pub fn speeds(&self, last: &NetSample) -> NetSpeeds {
+        let secs = (self.time - last.time).as_secs_f64();
+        NetSpeeds {
+            tx: NetSpeed::from_bytes(secs, self.tx_bytes, last.tx_bytes),
+            rx: NetSpeed::from_bytes(secs, self.rx_bytes, last.rx_bytes),
+        }
     }
 }
 
@@ -105,6 +156,7 @@ fn display_char(value: f64, row: u8) -> u8 {
     assert!(value >= 0.);
     assert!(value <= 1.);
     assert!(row < 3);
+
     // we've got 3 rows each 8 pixels high, so 24 values
     let quantized = (value * 24.).ceil() as u8;
     let row = 2 - row;
@@ -163,9 +215,9 @@ fn main() -> Result<()> {
 
         let cpu = cpustats.get_load()?;
 
-        let mut mbps = vec![];
+        let mut speeds = vec![];
         for dev in ifstats.iter_mut() {
-            mbps.push(dev.mbps()?);
+            speeds.push(dev.get_speeds()?);
         }
 
         let (mem_avail, mem_total) = avail_mem_mib()
@@ -184,11 +236,9 @@ fn main() -> Result<()> {
 
             display.write(b'|');
 
-            for &(rx, tx) in &mbps {
-                let rx = (rx as f64 / 1000.).clamp(0., 1.);
-                let tx = (tx as f64 / 1000.).clamp(0., 1.);
-                display.write(display_char(tx, row));
-                display.write(display_char(rx, row));
+            for NetSpeeds { rx, tx } in &speeds {
+                display.write(display_char(tx.log_display(), row));
+                display.write(display_char(rx.log_display(), row));
             }
 
             display.print("| ");
@@ -205,13 +255,13 @@ fn main() -> Result<()> {
         let max_rx_mbps = ifstats
             .iter()
             .flat_map(|netstats| netstats.buckets.iter())
-            .map(|(_, rx, _)| rx.ceil() as u16)
+            .map(|(_, NetSpeeds { rx, .. })| rx.mbps().ceil() as u16)
             .max()
             .unwrap();
         let max_tx_mbps = ifstats
             .iter()
             .flat_map(|netstats| netstats.buckets.iter())
-            .map(|(_, _, tx)| tx.ceil() as u16)
+            .map(|(_, NetSpeeds { tx, .. })| tx.mbps().ceil() as u16)
             .max()
             .unwrap();
         write!(&mut display, "{:>3}/{:>3}", max_tx_mbps, max_rx_mbps)?;

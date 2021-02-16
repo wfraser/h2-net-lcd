@@ -26,10 +26,13 @@ dd = ether3
 ee = ether4
 ff = ether5
 first column is transmit, second column is receive.
+The display is logarithmic, base 10, so bottom row is 0-10mbps, second row is
+10-100mbps, and top row is 100-1000mbps.
 
 66°C = cpu temperature
 
-999/999 = moving peak network mbps (any interface) over last 1 minute
+999/999 = moving peak network mbps (any interface) over last 1 minute (clamped
+to a max of 999 mbps).
 
 m = percent of memory available
 ```
