@@ -252,18 +252,14 @@ fn main() -> Result<()> {
         display.write(0xdf); // degree sign
         display.print("C ");
 
-        let max_rx_mbps = ifstats
-            .iter()
-            .flat_map(|netstats| netstats.buckets.iter())
-            .map(|(_, NetSpeeds { rx, .. })| rx.mbps().ceil() as u16)
-            .max()
-            .unwrap();
-        let max_tx_mbps = ifstats
-            .iter()
-            .flat_map(|netstats| netstats.buckets.iter())
-            .map(|(_, NetSpeeds { tx, .. })| tx.mbps().ceil() as u16)
-            .max()
-            .unwrap();
+        let mut max_rx_mbps = 0;
+        let mut max_tx_mbps = 0;
+        for dev in &ifstats {
+            for (_time, NetSpeeds { rx, tx }) in &dev.buckets {
+                max_rx_mbps = max_rx_mbps.max(rx.mbps().ceil() as u16);
+                max_tx_mbps = max_tx_mbps.max(tx.mbps().ceil() as u16);
+            }
+        }
         write!(&mut display, "{:>3}/{:>3}", max_tx_mbps, max_rx_mbps)?;
 
         display.print(" mem");
