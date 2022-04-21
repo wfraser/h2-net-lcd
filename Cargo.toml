@@ -8,7 +8,7 @@ edition = "2018"
 
 [dependencies]
 anyhow = "*"
-lcd = { git = "https://github.com/wfraser/lcd", rev = "b62212d7441f916a9fcef7dad01279a30dcff6f8" }
+lcd = "0.4.1"
 lcd-pcf8574 = { git = "https://github.com/wfraser/lcd-pcf8574" }
 signal-hook = "0.3.4"
 systemstat = "0.1.6"

@@ -87,13 +87,14 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "lcd"
-version = "0.4.0-alpha.0"
-source = "git+https://github.com/wfraser/lcd?rev=b62212d7441f916a9fcef7dad01279a30dcff6f8#b62212d7441f916a9fcef7dad01279a30dcff6f8"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "971d8fd9a162c0bda137b341493cce134a2f55f3317b8533d992934bc523c325"
 
 [[package]]
 name = "lcd-pcf8574"
 version = "0.1.1"
-source = "git+https://github.com/wfraser/lcd-pcf8574#032327aef030922dfcdc5550596cb6df98a42086"
+source = "git+https://github.com/wfraser/lcd-pcf8574#1153b5c4ba290dec3676dad05f079f8b1bd33fef"
 dependencies = [
  "i2cdev",
  "lcd",
