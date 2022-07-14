@@ -7,16 +7,17 @@ use lcd::{
     FunctionDots,
     FunctionLine,
 };
-use lcd_pcf8574::Pcf8574;
+use lcd_pcf8574::{Pcf8574, ErrorHandling};
 
 const I2C_BUS: u8 = 2;
 const I2C_ADDR: u16 = 0x27;
 
 pub fn init_display() -> Result<Display<Pcf8574>> {
-    let mut display = Display::new(
-        Pcf8574::new(I2C_BUS, I2C_ADDR)
-            .context("failed to open I2C device")?);
+    let mut dev = Pcf8574::new(I2C_BUS, I2C_ADDR)
+        .context("failed to open I2C device")?;
+    dev.on_error(ErrorHandling::Custom(Box::new(|e| eprintln!("I/O error: {}", e))));
 
+    let mut display = Display::new(dev);
     display.init(FunctionLine::Line2, FunctionDots::Dots5x8);
     display.display(
         DisplayMode::DisplayOn,
