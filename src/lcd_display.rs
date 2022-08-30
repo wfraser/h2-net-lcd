@@ -11,7 +11,7 @@ use lcd_pcf8574::{Pcf8574, ErrorHandling};
 use std::cell::Cell;
 use std::rc::Rc;
 
-const I2C_BUS: u8 = 1;
+const I2C_BUS: u8 = 2;
 const I2C_ADDR: u16 = 0x27;
 
 pub fn init_display() -> Result<Display<Pcf8574>> {
