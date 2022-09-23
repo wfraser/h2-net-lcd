@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use i2cdev::linux::LinuxI2CError;
 pub use lcd::Display;
 use lcd::{
     DisplayBlink,
@@ -8,25 +9,24 @@ use lcd::{
     FunctionLine,
 };
 use lcd_pcf8574::{Pcf8574, ErrorHandling};
+use nix::errno::Errno;
 use std::cell::Cell;
 use std::rc::Rc;
 
-const I2C_BUS: u8 = 2;
-const I2C_ADDR: u16 = 0x27;
-
-pub fn init_display() -> Result<Display<Pcf8574>> {
-
-    let mut dev = Pcf8574::new(I2C_BUS, I2C_ADDR)
+pub fn init_display(bus: u8, addr: u16) -> Result<Display<Pcf8574>> {
+    let mut dev = Pcf8574::new(bus, addr)
         .context("failed to open I2C device")?;
 
-    // Fail fast and panic on errors during init, so we can quickly know if the parameters are
-    // wrong.
-    let epanic = Rc::new(Cell::new(true));
+    // For errors during init, save them into a Cell so we can return them, so callers can quickly
+    // know if the parameters are wrong.
+    let save_error = Rc::new(Cell::new(true));
+    let error = Rc::new(Cell::new(Option::<anyhow::Error>::None));
     dev.on_error(ErrorHandling::Custom(Box::new({
-        let epanic = Rc::clone(&epanic);
+        let save_error = Rc::clone(&save_error);
+        let error = Rc::clone(&error);
         move |e| {
-            if epanic.get() {
-                panic!("I/O error: {}", e);
+            if save_error.get() {
+                error.set(Some(e.into()));
             } else {
                 eprintln!("I/O error: {}", e);
             }
@@ -36,8 +36,13 @@ pub fn init_display() -> Result<Display<Pcf8574>> {
     let mut display = Display::new(dev);
     display.init(FunctionLine::Line2, FunctionDots::Dots5x8);
 
+    if let Some(e) = error.replace(None) {
+        // Something went wrong during init, bail out now.
+        return Err(e);
+    }
+
     // If it successfully init'd, we're probably good to just print errors now.
-    epanic.set(false);
+    save_error.set(false);
 
     display.display(
         DisplayMode::DisplayOn,
@@ -62,4 +67,18 @@ pub fn stop_display(mut display: Display<Pcf8574>) {
         DisplayCursor::CursorOff,
         DisplayBlink::BlinkOff);
     display.unwrap().backlight(false);
+}
+
+/// Is the given error indicative of the wrong I2C bus being used? (i.e. should you retry on a
+/// different one?)
+pub fn is_bus_fubar_error(e: &anyhow::Error) -> bool {
+    if let Some(e) = e.downcast_ref::<LinuxI2CError>() {
+        match e {
+            LinuxI2CError::Io(e) => e.raw_os_error() == Some(libc::EREMOTEIO),
+            LinuxI2CError::Nix(Errno::EREMOTEIO) => true,
+            _ => false,
+        }
+    } else {
+        false
+    }
 }

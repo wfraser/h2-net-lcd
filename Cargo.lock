@@ -58,11 +58,14 @@ dependencies = [
 
 [[package]]
 name = "h2-net-lcd"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
+ "i2cdev",
  "lcd",
  "lcd-pcf8574",
+ "libc",
+ "nix",
  "signal-hook",
  "systemstat",
 ]

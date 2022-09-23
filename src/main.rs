@@ -12,17 +12,21 @@ const NET_DEV_NAMES: [&str; 6] = [
     "ether0", "ether1", "ether2", "ether3", "ether4", "ether5",
 ];
 
+const I2C_BUS: u8 = 2;
+const I2C_BUS_FALLBACK: u8 = 1;
+const I2C_ADDR: u16 = 0x27;
+
 #[cfg(not(feature = "mock"))]
 mod lcd_display;
 
 #[cfg(not(feature = "mock"))]
-use lcd_display::{init_display, stop_display};
+use lcd_display::{init_display, stop_display, is_bus_fubar_error};
 
 #[cfg(feature = "mock")]
 mod mock_display;
 
 #[cfg(feature = "mock")]
-use mock_display::{init_display, stop_display};
+use mock_display::{init_display, stop_display, is_bus_fubar_error};
 
 struct NetStats {
     name: String,
@@ -196,7 +200,25 @@ fn test_display_char() {
 }
 
 fn main() -> Result<()> {
-    let mut display = init_display()?;
+    let mut display = init_display(I2C_BUS, I2C_ADDR)
+        .or_else(|e| {
+            if is_bus_fubar_error(&e) {
+                eprintln!("error on I2C bus {I2C_BUS}: {e}");
+                eprintln!("trying I2C bus {I2C_BUS_FALLBACK} as fallback");
+                match init_display(I2C_BUS_FALLBACK, I2C_ADDR) {
+                    Err(e2) => {
+                        eprintln!("I2C bus fallback also failed: {e2}");
+                        Err(e) // return original error
+                    }
+                    Ok(d) => {
+                        eprintln!("I2C bus fallback worked");
+                        Ok(d)
+                    }
+                }
+            } else {
+                Err(e)
+            }
+        })?;
 
     let stop = Arc::new(AtomicBool::new(false));
     signal_hook::flag::register(signal_hook::consts::SIGTERM, stop.clone())

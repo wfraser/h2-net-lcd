@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-pub fn init_display() -> Result<MockDisplay> {
+pub fn init_display(_bus: u8, _addr: u16) -> Result<MockDisplay> {
     Ok(MockDisplay::new())
 }
 
@@ -64,4 +64,8 @@ impl std::fmt::Write for MockDisplay {
         self.print(s);
         Ok(())
     }
+}
+
+pub fn is_bus_fubar_error(_: &anyhow::Error) -> bool {
+    false
 }
